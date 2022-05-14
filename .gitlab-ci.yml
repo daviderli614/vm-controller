@@ -1,0 +1,49 @@
+# 全局变量
+variables:
+  IMAGE_NAME_TEST: "uhub.service.ucloud.cn/liyang01/vm-controller"
+  IMAGE_NAME: "uhub.service.ucloud.cn/uk8s/vm-controller"
+  REPO_NAME: "vm-controller"
+
+stages:
+  - StyleCheck
+  - Compile
+  - BuildImage
+  - BuildTagImage
+
+golint:
+  stage: StyleCheck
+  image: uhub.service.ucloud.cn/wxyz/golint:1.11.1
+  script:
+    - golint .
+
+binary-compile:
+  stage: Compile
+  image: hub.ucloudadmin.com/uk8sshare/golang:1.14.4
+  script:
+    - cd $CI_PROJECT_DIR
+    - mkdir -p $CI_PROJECT_DIR/bin
+    - set GO111MODULE=on
+    - make
+  artifacts:
+    paths:
+      - bin
+
+docker-image:
+  stage: BuildImage
+  image: hub.ucloudadmin.com/uaek/uaek-kaniko-executor:latest
+  script:
+    - rm -f /kaniko/.docker/config.json
+    - /kaniko/executor -c $CI_PROJECT_DIR -f $CI_PROJECT_DIR/Dockerfile -d $IMAGE_NAME_TEST:$CI_BUILD_REF_NAME
+    - /kaniko/executor -c $CI_PROJECT_DIR -f $CI_PROJECT_DIR/Dockerfile -d $IMAGE_NAME_TEST:test
+  only:
+    - branches
+
+docker-image-tag:
+  stage: BuildTagImage
+  image: hub.ucloudadmin.com/uaek/uaek-kaniko-executor:latest
+  script:
+    - rm -f /kaniko/.docker/config.json
+    - /kaniko/executor -c $CI_PROJECT_DIR -f $CI_PROJECT_DIR/Dockerfile -d $IMAGE_NAME:$CI_BUILD_REF_NAME
+    - /kaniko/executor -c $CI_PROJECT_DIR -f $CI_PROJECT_DIR/Dockerfile -d $IMAGE_NAME:latest
+  only:
+    - tags
